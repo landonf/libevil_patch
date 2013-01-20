@@ -96,21 +96,16 @@ static void page_mapper (int signo, siginfo_t *info, void *uapVoid) {
         }
     }
 
-#if 1
-    // This is six kinds of wrong; we're just rewriting any values that map the si_addr, and
-    // are pointed at our remapped space. The danger here ought to be obvious.
+    // This is six kinds of wrong; we're just rewriting any registers that match the si_addr, and
+    // are pointed into now-dead pages. The danger here ought to be obvious.
     for (int i = 0; i < patch_count; i++) {
         struct patch *p = &patches[i];
 
-        // Disabling this sanity check is a hail-mary pass until we can implement correct
-        // segment remapping.
-#if 0
         if ((uintptr_t) info->si_addr < p->orig_addr)
             continue;
 
         if ((uintptr_t) info->si_addr >= p->orig_addr + p->mapped_size)
             continue;
-#endif
 
         // XXX we abuse the r[] array here.
         for (int i = 0; i < 15; i++) {
@@ -135,7 +130,6 @@ static void page_mapper (int signo, siginfo_t *info, void *uapVoid) {
                 uap->uc_mcontext->__ss.__lr += p->orig_addr - p->new_addr;
         }
     }
-#endif
 
     return;
 }
@@ -156,12 +150,11 @@ void evil_init (void) {
 }
 
 
-static vm_size_t macho_size (const void *header) {
+static BOOL macho_iterate_segments (const void *header, void (^block)(const char segname[16], vm_address_t vmaddr, vm_size_t vmsize, BOOL *cont)) {
     const struct mach_header *header32 = (const struct mach_header *) header;
     const struct mach_header_64 *header64 = (const struct mach_header_64 *) header;
     struct load_command *cmd;
     uint32_t ncmds;
-    vm_size_t total_size = 0;
 
     /* Check for 32-bit/64-bit header and extract required values */
     switch (header32->magic) {
@@ -181,29 +174,31 @@ static vm_size_t macho_size (const void *header) {
             
         default:
             NSLog(@"Invalid Mach-O header magic value: %x", header32->magic);
-            return 0;
+            return false;
     }
 
-    // This is all kinds of wrong. We actually need to be remapping each segment
-    // individually into place. Instead we're trying to treat the image as one
-    // huge mapping. This will not work out well.
     for (uint32_t i = 0; cmd != NULL && i < ncmds; i++) {
+        BOOL cont = true;
+
         /* 32-bit text segment */
         if (cmd->cmd == LC_SEGMENT) {
             struct segment_command *segment = (struct segment_command *) cmd;
-            total_size += segment->vmsize;
+            block(segment->segname, segment->vmaddr, segment->vmsize, &cont);
         }
         
         /* 64-bit text segment */
         else if (cmd->cmd == LC_SEGMENT_64) {
             struct segment_command_64 *segment = (struct segment_command_64 *) cmd;            
-            total_size += segment->vmsize;
+            block(segment->segname, segment->vmaddr, segment->vmsize, &cont);
         }
         
         cmd = (struct load_command *) ((uint8_t *) cmd + cmd->cmdsize);
+        
+        if (!cont)
+            break;
     }
 
-    return total_size;
+    return true;
 }
 
 extern void *_sigtramp;
@@ -211,45 +206,80 @@ extern void *_sigtramp;
 // Replace 'function' with 'newImp', and return an address at 'originalRentry' that
 // may be used to call the original function.
 kern_return_t evil_override_ptr (void *function, const void *newFunction, void **originalRentry) {
-    kern_return_t kt;
+    __block kern_return_t kt;
     
     vm_address_t page = trunc_page((vm_address_t) function);
     assert(page != trunc_page((vm_address_t) _sigtramp));
 
-    /* Determine the Mach-O image and size. We'll remap the whole darn thing */
+    /* Determine the Mach-O image and size. */
     Dl_info dlinfo;
     if (dladdr(function, &dlinfo) == 0) {
         NSLog(@"dladdr() failed: %s", dlerror());
         return KERN_FAILURE;
     }
+
     vm_address_t image_addr = (vm_address_t) dlinfo.dli_fbase;
-    vm_address_t image_size = macho_size(dlinfo.dli_fbase);
-    if (image_size == 0) {
+    __block vm_address_t image_end = image_addr;
+    __block intptr_t image_slide = 0x0;
+    bool ret = macho_iterate_segments(dlinfo.dli_fbase, ^(const char segname[16], vm_address_t vmaddr, vm_size_t vmsize, BOOL *cont) {
+        if (vmaddr + vmsize > image_end)
+            image_end = vmaddr + vmsize;
+
+        // compute the slide. we could also get this iterating the images via dyld, but whatever.
+        if (strcmp(segname, SEG_TEXT) == 0) {
+            if (vmaddr < image_addr)
+                image_slide = image_addr - vmaddr;
+            else
+                image_slide = vmaddr - image_addr;
+        }
+            
+    });
+    vm_address_t image_size = image_end - image_addr;
+
+    if (!ret) {
         NSLog(@"Failed parsing Mach-O header");
         return KERN_FAILURE;
     }
 
-
-    /* Remap page and +-1 page. This will handle direct PC-relative loads, but will
-     * break on anything fancier. Uh oh! */
+    /* Allocate a single contigious block large enough for our purposes */
     vm_address_t target = 0x0;
-    vm_prot_t cprot, mprot;
-    kt = vm_remap(mach_task_self(),
-                  &target,
-                  image_size,
-                  0x0,
-                  VM_FLAGS_ANYWHERE,
-                  mach_task_self(),
-                  image_addr,
-                  false,
-                  &cprot,
-                  &mprot,
-                  VM_INHERIT_SHARE);
+    kt = vm_allocate(mach_task_self(), &target, image_size, VM_FLAGS_ANYWHERE);
+    if (kt != KERN_SUCCESS) {
+        NSLog(@"Failed reserving sufficient space");
+        return KERN_FAILURE;
+    }
+
+    /* Remap the segments into place */
+    macho_iterate_segments(dlinfo.dli_fbase, ^(const char segname[16], vm_address_t vmaddr, vm_size_t vmsize, BOOL *cont) {
+        if (vmsize == 0)
+            return;
+
+        vm_address_t seg_source = vmaddr + image_slide;
+        vm_address_t seg_target = target + (seg_source - image_addr);
+
+        vm_prot_t cprot, mprot;
+        kt = vm_remap(mach_task_self(),
+                      &seg_target,
+                      vmsize,
+                      0x0,
+                      VM_FLAGS_FIXED|VM_FLAGS_OVERWRITE,
+                      mach_task_self(),
+                      seg_source,
+                      false,
+                      &cprot,
+                      &mprot,
+                      VM_INHERIT_SHARE);
+        if (kt != KERN_SUCCESS) {
+            *cont = false;
+            return;
+        }
+    });
+
     if (kt != KERN_SUCCESS) {
         NSLog(@"Failed to remap pages: %x", kt);
         return kt;
     }
-    
+
     struct patch *p = &patches[patch_count];
     p->orig_addr = image_addr;
     p->new_addr = target;
@@ -262,14 +292,20 @@ kern_return_t evil_override_ptr (void *function, const void *newFunction, void *
     patch_count++;
 
     // For whatever reason we can't just remove PROT_WRITE with mprotect. It
-    // succeeds, but then doesn't do anything. So instead, we just deallocate
-    // it. I guess we could also try mapping in a NULL page or something to
-    // prevent something new being allocated in its place, but whatever.
+    // succeeds, but then doesn't do anything. So instead, we overwrite the
+    // target with a dead page.
+    // There's a race condition between the vm_allocate and vm_protect.
 #if 1
-    vm_deallocate(mach_task_self(), page, PAGE_SIZE);
-#endif
-    
-#if 0
+    // vm_deallocate(mach_task_self(), page, PAGE_SIZE);
+
+    kt = vm_allocate(mach_task_self(), &page, PAGE_SIZE, VM_FLAGS_FIXED|VM_FLAGS_OVERWRITE);
+    if (kt != KERN_SUCCESS) {
+        NSLog(@"Failed reserving sufficient space");
+        return KERN_FAILURE;
+    }
+    vm_protect(mach_task_self(), page, PAGE_SIZE, true, VM_PROT_NONE);
+
+#else
     if (mprotect(page, PAGE_SIZE, PROT_NONE) != 0) {
         perror("mprotect");
         return KERN_FAILURE;

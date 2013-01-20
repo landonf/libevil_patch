@@ -12,7 +12,14 @@
 void (*orig_NSLog)(NSString *fmt, ...) = NULL;
 
 void my_NSLog (NSString *fmt, ...) {
-    orig_NSLog(@"I'm afraid I can't let you do that, Dave");
+    orig_NSLog(@"I'm in your computers, patching your strings ...");
+
+    NSString *newFmt = [NSString stringWithFormat: @"[PATCHED]: %@", fmt];
+    
+    va_list ap;
+    va_start(ap, fmt);
+    NSLogv(newFmt, ap);
+    va_end(ap);
 }
 
 void (*orig_exit)(int v) = NULL;
@@ -38,13 +45,13 @@ NSString *my_TEMP (void) {
     exit(1);
 #endif
 
-#if 0
+#if 1
     evil_override_ptr(NSLog, my_NSLog, (void **) &orig_NSLog);
 
     NSLog(@"Please print this sir");
 #endif
     
-#if 1
+#if 0
     evil_override_ptr(NSTemporaryDirectory, my_TEMP, (void **) &orig_TEMP);
     NSLog(@"Returned %@", NSTemporaryDirectory());
 #endif
