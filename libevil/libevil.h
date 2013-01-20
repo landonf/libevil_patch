@@ -27,4 +27,4 @@
  */
 
 void evil_init (void);
-kern_return_t evil_override_ptr (void *function, const void *newImp, void **originalRentry);
+kern_return_t evil_override_ptr (void *function, const void *newFunction, void **originalRentry);

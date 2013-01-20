@@ -10,7 +10,6 @@
 		054A290516AB71D400C2B9B6 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 054A290416AB71D400C2B9B6 /* Foundation.framework */; };
 		054A290A16AB71D400C2B9B6 /* libevil.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 054A290916AB71D400C2B9B6 /* libevil.h */; };
 		054A290C16AB71D400C2B9B6 /* libevil.m in Sources */ = {isa = PBXBuildFile; fileRef = 054A290B16AB71D400C2B9B6 /* libevil.m */; };
-		054A292D16AB7D7600C2B9B6 /* evil_tramp.S in Sources */ = {isa = PBXBuildFile; fileRef = 054A292C16AB7D7600C2B9B6 /* evil_tramp.S */; };
 		054A293416AB85D100C2B9B6 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 054A291516AB71D400C2B9B6 /* UIKit.framework */; };
 		054A293516AB85D100C2B9B6 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 054A290416AB71D400C2B9B6 /* Foundation.framework */; };
 		054A293716AB85D100C2B9B6 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 054A293616AB85D100C2B9B6 /* CoreGraphics.framework */; };
@@ -54,7 +53,6 @@
 		054A290B16AB71D400C2B9B6 /* libevil.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = libevil.m; sourceTree = "<group>"; };
 		054A291316AB71D400C2B9B6 /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
 		054A291516AB71D400C2B9B6 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
-		054A292C16AB7D7600C2B9B6 /* evil_tramp.S */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = evil_tramp.S; sourceTree = "<group>"; };
 		054A293216AB85D100C2B9B6 /* testEvil.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = testEvil.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		054A293616AB85D100C2B9B6 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		054A293A16AB85D100C2B9B6 /* testEvil-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "testEvil-Info.plist"; sourceTree = "<group>"; };
@@ -126,7 +124,6 @@
 			children = (
 				054A290916AB71D400C2B9B6 /* libevil.h */,
 				054A290B16AB71D400C2B9B6 /* libevil.m */,
-				054A292C16AB7D7600C2B9B6 /* evil_tramp.S */,
 				054A290716AB71D400C2B9B6 /* Supporting Files */,
 			);
 			path = libevil;
@@ -249,7 +246,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				054A290C16AB71D400C2B9B6 /* libevil.m in Sources */,
-				054A292D16AB7D7600C2B9B6 /* evil_tramp.S in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -409,6 +405,7 @@
 				054A292816AB71D400C2B9B6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		054A294A16AB85D100C2B9B6 /* Build configuration list for PBXNativeTarget "testEvil" */ = {
 			isa = XCConfigurationList;
@@ -417,6 +414,7 @@
 				054A294C16AB85D100C2B9B6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

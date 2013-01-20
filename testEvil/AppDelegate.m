@@ -12,7 +12,7 @@
 void (*orig_NSLog)(NSString *fmt, ...) = NULL;
 
 void my_NSLog (NSString *fmt, ...) {
-    orig_NSLog(@"Haha you actually want me to print something? OK, fine: %d", 42);
+    orig_NSLog(@"I'm afraid I can't let you do that, Dave");
 }
 
 void (*orig_exit)(int v) = NULL;
@@ -21,12 +21,19 @@ void my_exit (int v) {
     NSLog(@"I'm afraid I can't let you do that, Dave");
 }
 
+NSString *(*orig_TEMP)(void);
+
+NSString *my_TEMP (void) {
+    NSLog(@"I am in your machine, not letting you have your %@", orig_TEMP());
+    return @"I'm sorry Dave, but I'm afraid I can't let you do that";
+}
+
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     evil_init();
     
-#if 1
+#if 0
     evil_override_ptr(exit, my_exit, (void **) &orig_exit);
     exit(1);
 #endif
@@ -36,7 +43,12 @@ void my_exit (int v) {
 
     NSLog(@"Please print this sir");
 #endif
-
+    
+#if 1
+    evil_override_ptr(NSTemporaryDirectory, my_TEMP, (void **) &orig_TEMP);
+    NSLog(@"Returned %@", NSTemporaryDirectory());
+#endif
+    
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     // Override point for customization after application launch.
     self.window.backgroundColor = [UIColor whiteColor];
