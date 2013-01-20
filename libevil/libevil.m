@@ -1,7 +1,7 @@
 /*
  * Author: Landon Fuller <landonf@bikemonkey.org>
  *
- * Copyright (c) 2013 Plausible Labs Cooperative, Inc.
+ * Copyright (c) 2013 Landon Fuller <landonf@bikemonkey.org>.
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -294,7 +294,9 @@ kern_return_t evil_override_ptr (void *function, const void *newFunction, void *
     // For whatever reason we can't just remove PROT_WRITE with mprotect. It
     // succeeds, but then doesn't do anything. So instead, we overwrite the
     // target with a dead page.
-    // There's a race condition between the vm_allocate and vm_protect.
+    // There's a race condition between the vm_allocate and vm_protect. One could
+    // probably fix that by allocating elsewhere, setting permissions, and remapping in,
+    // or by mapping in the NULL page.
 #if 1
     // vm_deallocate(mach_task_self(), page, PAGE_SIZE);
 
