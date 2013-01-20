@@ -55,7 +55,7 @@ To actually apply the patch:
         NSLog(@"Print a string");
     }
 
-If you run this code, you should see something like the following. Note that the OS output has been patched, too:
+If you run this code, you should see something like the following. Note that the OS usage of NSLog() has been patched, too:
 
     Jan 20 10:09:02 Spyglass testEvil[309] <Warning>: I'm in your computers, patching your strings ...
     Jan 20 10:09:02 Spyglass testEvil[309] <Warning>: [PATCHED]: Print a string
